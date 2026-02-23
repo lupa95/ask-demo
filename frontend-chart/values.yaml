@@ -75,7 +75,7 @@ ingress:
         - path: /
           pathType: ImplementationSpecific
   tls:
-    - secretName: demo-ask-tls
+    - secretName: example.com
       hosts:
         - example.com
 
