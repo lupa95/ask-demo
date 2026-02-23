@@ -15,7 +15,7 @@ image:
 
 # Database configuration
 database:
-  host: postgres-postgresql.demo.svc.cluster.local
+  host: postgresql-postgresql.demo.svc.cluster.local
   port: 5432
   name: demodb
   user: demouser
