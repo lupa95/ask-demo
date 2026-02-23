@@ -1,0 +1,215 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "frontend.fullname" . }}-html
+  labels:
+    {{- include "frontend.labels" . | nindent 4 }}
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Demo Application</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 50px auto;
+                padding: 20px;
+                background-color: #f5f5f5;
+            }
+            .container {
+                background-color: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            h1 {
+                color: #333;
+            }
+            .status {
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 5px;
+            }
+            .success {
+                background-color: #d4edda;
+                border: 1px solid #c3e6cb;
+                color: #155724;
+            }
+            .info {
+                background-color: #d1ecf1;
+                border: 1px solid #bee5eb;
+                color: #0c5460;
+            }
+            .details {
+                margin-top: 20px;
+                font-family: monospace;
+                background-color: #f8f9fa;
+                padding: 15px;
+                border-radius: 5px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🚀 ASK Demo Application</h1>
+            <div class="status success">
+                <strong>✓ Frontend Status:</strong> Running
+            </div>
+            <div class="status info" id="db-status">
+                <strong>⚡ Database Status:</strong> <span id="db-result">Checking...</span>
+            </div>
+            <div class="details">
+                <strong>Configuration:</strong><br>
+                Database Host: {{ .Values.database.host }}<br>
+                Database Port: {{ .Values.database.port }}<br>
+                Database Name: {{ .Values.database.name }}<br>
+                Pod Name: <span id="hostname">Loading...</span><br>
+                Last Check: <span id="last-check">-</span><br>
+            </div>
+        </div>
+        <script>
+            function updateStatus() {
+                fetch('/api/status')
+                    .then(response => response.json())
+                    .then(data => {
+                        // Update pod name
+                        document.getElementById('hostname').textContent = data.pod_name;
+
+                        // Update database status
+                        const dbStatus = document.getElementById('db-status');
+                        const dbResult = document.getElementById('db-result');
+
+                        if (data.database_status === 'connected') {
+                            dbResult.textContent = 'Connected ✓';
+                            dbStatus.className = 'status success';
+                        } else {
+                            dbResult.textContent = 'Failed ✗ - ' + data.database_error;
+                            dbStatus.className = 'status';
+                            dbStatus.style.backgroundColor = '#f8d7da';
+                            dbStatus.style.border = '1px solid #f5c6cb';
+                            dbStatus.style.color = '#721c24';
+                        }
+
+                        // Update last check time
+                        document.getElementById('last-check').textContent = new Date().toLocaleTimeString();
+                    })
+                    .catch(error => {
+                        document.getElementById('hostname').textContent = 'Error';
+                        document.getElementById('db-result').textContent = 'Cannot reach API';
+                    });
+            }
+
+            // Initial check
+            updateStatus();
+
+            // Refresh every 5 seconds
+            setInterval(updateStatus, 5000);
+        </script>
+    </body>
+    </html>
+
+  db-check.sh: |
+    #!/bin/sh
+    # Simple database connection check script
+    echo "Checking database connection..."
+
+    # Using pg_isready if available, or nc as fallback
+    if command -v pg_isready > /dev/null 2>&1; then
+        pg_isready -h {{ .Values.database.host }} -p {{ .Values.database.port }} -U {{ .Values.database.user }}
+        if [ $? -eq 0 ]; then
+            echo "SUCCESS: Database is ready"
+            exit 0
+        else
+            echo "FAILED: Database is not ready"
+            exit 1
+        fi
+    else
+        nc -zv {{ .Values.database.host }} {{ .Values.database.port }}
+        if [ $? -eq 0 ]; then
+            echo "SUCCESS: Database port is reachable"
+            exit 0
+        else
+            echo "FAILED: Cannot reach database"
+            exit 1
+        fi
+    fi
+
+  app.py: |
+    #!/usr/bin/env python3
+    import os
+    import json
+    import socket
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    import psycopg2
+
+    DB_HOST = "{{ .Values.database.host }}"
+    DB_PORT = {{ .Values.database.port }}
+    DB_NAME = "{{ .Values.database.name }}"
+    DB_USER = "{{ .Values.database.user }}"
+    DB_PASSWORD = "{{ .Values.database.password }}"
+
+    class RequestHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == '/api/status':
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+
+                # Get pod name
+                pod_name = os.environ.get('HOSTNAME', 'unknown')
+
+                # Check database connection
+                db_status = "disconnected"
+                db_error = "Unknown error"
+
+                try:
+                    conn = psycopg2.connect(
+                        host=DB_HOST,
+                        port=DB_PORT,
+                        database=DB_NAME,
+                        user=DB_USER,
+                        password=DB_PASSWORD,
+                        connect_timeout=3
+                    )
+                    conn.close()
+                    db_status = "connected"
+                    db_error = None
+                except Exception as e:
+                    db_error = str(e)
+
+                response = {
+                    "pod_name": pod_name,
+                    "database_status": db_status,
+                    "database_error": db_error,
+                    "database_host": DB_HOST,
+                    "database_port": DB_PORT
+                }
+
+                self.wfile.write(json.dumps(response).encode())
+            elif self.path == '/' or self.path == '/index.html':
+                # Serve the HTML file
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.end_headers()
+                try:
+                    with open('/app/index.html', 'r') as f:
+                        self.wfile.write(f.read().encode())
+                except Exception as e:
+                    self.wfile.write(f"Error loading page: {e}".encode())
+            else:
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(b"Not found")
+
+        def log_message(self, format, *args):
+            print(f"{self.client_address[0]} - [{self.log_date_time_string()}] {format % args}")
+
+    if __name__ == '__main__':
+        server = HTTPServer(('0.0.0.0', 8080), RequestHandler)
+        print(f"Server starting on port 8080...")
+        server.serve_forever()
