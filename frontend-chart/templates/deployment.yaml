@@ -30,16 +30,6 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      initContainers:
-        - name: db-check
-          image: postgres:15-alpine
-          command: ["/bin/sh", "/scripts/db-check.sh"]
-          env:
-            - name: PGPASSWORD
-              value: {{ .Values.database.password | quote }}
-          volumeMounts:
-            - name: scripts
-              mountPath: /scripts
       containers:
         - name: {{ .Chart.Name }}
           {{- with .Values.securityContext }}
@@ -95,13 +85,6 @@ spec:
             items:
               - key: app.py
                 path: app.py
-            defaultMode: 0755
-        - name: scripts
-          configMap:
-            name: {{ include "frontend.fullname" . }}-html
-            items:
-              - key: db-check.sh
-                path: db-check.sh
             defaultMode: 0755
         {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}

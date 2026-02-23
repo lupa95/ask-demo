@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-postgresql
+  name: {{ .Release.Name }}
   labels:
-    app: {{ .Release.Name }}-postgresql
+    app: {{ .Release.Name }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
     release: {{ .Release.Name }}
 spec:
@@ -14,5 +14,5 @@ spec:
       protocol: TCP
       name: postgresql
   selector:
-    app: {{ .Release.Name }}-postgresql
+    app: {{ .Release.Name }}
     release: {{ .Release.Name }}

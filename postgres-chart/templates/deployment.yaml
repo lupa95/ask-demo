@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-postgresql
+  name: {{ .Release.Name }}
   labels:
-    app: {{ .Release.Name }}-postgresql
+    app: {{ .Release.Name }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
     release: {{ .Release.Name }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{ .Release.Name }}-postgresql
+      app: {{ .Release.Name }}
       release: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: {{ .Release.Name }}-postgresql
+        app: {{ .Release.Name }}
         release: {{ .Release.Name }}
     spec:
       containers:
@@ -24,7 +24,7 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         envFrom:
         - secretRef:
-            name: {{ .Release.Name }}-postgresql
+            name: {{ .Release.Name }}
         ports:
         - name: postgresql
           containerPort: 5432
@@ -56,7 +56,7 @@ spec:
       - name: data
         {{- if .Values.persistence.enabled }}
         persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-postgresql-data
+          claimName: {{ .Release.Name }}-data
         {{- else }}
         emptyDir: {}
         {{- end }}
