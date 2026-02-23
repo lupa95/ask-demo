@@ -121,3 +121,7 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+tls:
+  pubKey:
+  privKey:
